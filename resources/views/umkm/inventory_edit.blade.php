@@ -76,5 +76,7 @@
             </div>
         </div>
     </main>
+    <x-umkm-ai-widget />
+    <x-accessibility-widget />
 </body>
 </html>

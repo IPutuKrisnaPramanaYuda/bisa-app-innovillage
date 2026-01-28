@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        Evaluasi & Laporan Keuangan
+        Evaluasi dan Laporan Keuangan
     </x-slot>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

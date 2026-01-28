@@ -8,5 +8,15 @@ use Illuminate\Database\Eloquent\Model;
 class ChatSession extends Model
 {
     use HasFactory;
+
     protected $guarded = ['id'];
+
+    /**
+     * Relasi: ChatSession dimiliki oleh User
+     * (Fungsi inilah yang dicari oleh ->with('user'))
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

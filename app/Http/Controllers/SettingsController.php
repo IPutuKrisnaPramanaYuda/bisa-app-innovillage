@@ -4,12 +4,66 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Smalot\PdfParser\Parser; // <--- JANGAN LUPA INI
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Smalot\PdfParser\Parser;
 
 class SettingsController extends Controller
 {
-    // ... method index() & toggleContributor() biarkan saja ...
-    public function index() { return view('settings.index'); }
+    // 1. TAMPILKAN HALAMAN SETTINGS
+    public function index() 
+    { 
+        // Ambil data UMKM milik user yang login
+        $umkm = Auth::user()->umkm;
+
+        // Kirim variable $umkm ke view 'settings'
+        return view('settings.index', compact('umkm')); 
+    }
+
+    // 2. UPDATE PROFIL TOKO (Baru Ditambahkan)
+    public function updateShop(Request $request)
+    {
+        $umkm = Auth::user()->umkm;
+
+        if (!$umkm) {
+            return back()->with('error', 'Anda belum memiliki toko! Silakan buat toko terlebih dahulu.');
+        }
+
+        $request->validate([
+            'name'        => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'phone'       => 'nullable|string|max:20',
+            'address'     => 'nullable|string',
+            'image'       => 'nullable|image|mimes:jpeg,png,jpg|max:2048', // Max 2MB
+        ]);
+
+        // Logic Update Foto
+        if ($request->hasFile('image')) {
+            // Hapus foto lama jika ada
+            if ($umkm->image) {
+                Storage::disk('public')->delete($umkm->image);
+            }
+            // Simpan foto baru
+            $path = $request->file('image')->store('umkm_profiles', 'public');
+            $umkm->image = $path;
+        }
+
+        // Update Data
+        $umkm->name = $request->name;
+        // Opsional: Update slug jika nama berubah
+        if($umkm->isDirty('name')){
+             $umkm->slug = Str::slug($request->name);
+        }
+        $umkm->description = $request->description;
+        $umkm->phone = $request->phone;
+        $umkm->address = $request->address;
+        
+        $umkm->save();
+
+        return back()->with('success', 'Informasi Toko berhasil diperbarui!');
+    }
+
+    // --- FITUR KONTRIBUTOR (YANG LAMA TETAP ADA) ---
 
     public function toggleContributor(Request $request)
     {
@@ -32,8 +86,7 @@ class SettingsController extends Controller
         return view('settings.upload');
     }
 
-    // UPDATE BAGIAN INI:
-public function storeDataset(Request $request)
+    public function storeDataset(Request $request)
     {
         $request->validate([
             'title' => 'required|string|max:255',
@@ -44,12 +97,11 @@ public function storeDataset(Request $request)
         $file = $request->file('document');
         $extension = $file->getClientOriginalExtension();
         
-        // 1. Simpan File Fisik
+        // Simpan File Fisik
         $path = $file->store('datasets', 'public');
 
-        // 2. EKSTRAK TEKS
+        // Ekstrak Teks
         $textContent = "";
-        
         try {
             if ($extension === 'pdf') {
                 $parser = new Parser();
@@ -63,9 +115,7 @@ public function storeDataset(Request $request)
             $textContent = "Gagal membaca teks otomatis.";
         }
 
-        // ❌ JANGAN ADA dd($textContent) DISINI LAGI YAA ❌
-
-        // 3. Simpan ke Database
+        // Simpan ke Database
         \App\Models\Dataset::create([
             'user_id' => Auth::id(),
             'title' => $request->title,

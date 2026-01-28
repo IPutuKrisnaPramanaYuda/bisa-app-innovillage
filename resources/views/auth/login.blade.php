@@ -1,4 +1,4 @@
-<x-guest-layout>
+<x-auth-layout>
     <div class="h-screen flex w-full font-sans bg-[#0F172A] overflow-hidden">
         
         <div class="hidden lg:flex w-1/2 flex-col justify-center items-center text-white p-12 relative z-0">
@@ -13,9 +13,9 @@
             <div class="relative z-10 text-center">
                 <img src="{{ asset('images/logo.png') }}" alt="Logo Growth AI" class="w-32 h-auto mx-auto mb-6 drop-shadow-2xl hover:scale-105 transition-transform duration-300">
                 
-                <h1 class="text-4xl font-extrabold mb-4 tracking-tight">Growth AI</h1>
+                <h1 class="text-4xl font-extrabold mb-4 tracking-tight">BISA</h1>
                 <p class="text-blue-200 text-lg max-w-md mx-auto font-light leading-relaxed">
-                    Kelola bisnis UMKM Anda lebih cerdas dengan asisten AI terintegrasi.
+                   Bengkala Interactive Smart Assistant.
                 </p>
             </div>
         </div>
@@ -25,8 +25,8 @@
             <div class="w-full max-w-md p-8 bg-white rounded-3xl shadow-sm border border-gray-100 my-auto">
                 
                 <div class="text-center mb-8 lg:hidden">
-                    <img src="{{ asset('images/logo.png') }}" alt="Logo" class="w-20 mx-auto mb-4">
-                    <h2 class="text-2xl font-bold text-[#0F172A]">Growth AI</h2>
+                    <img src="{{ asset('images/logo2.png') }}" alt="Logo" class="w-20 mx-auto mb-4">
+                    <h2 class="text-2xl font-bold text-[#0F172A]">BISA</h2>
                     <p class="text-gray-500 text-sm">Masuk ke akun Anda</p>
                 </div>
 
@@ -123,4 +123,4 @@
             }
         });
     </script>
-</x-guest-layout>
+</x-auth-layout>

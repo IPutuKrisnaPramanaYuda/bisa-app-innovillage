@@ -6,16 +6,26 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SocialiteController;
 use App\Http\Controllers\UmkmController;
+use App\Http\Controllers\LandingController;
+use App\Models\Product;
+use App\Http\Middleware\IsAdmin;
+use App\Http\Controllers\AdminController;   
+use App\Http\Middleware\LogActivity;
+use App\Http\Middleware\AdminAuth;
 
 // =============================================================
 // 1. AKSES PUBLIK (BISA DIAKSES GUEST / BELUM LOGIN)
 // =============================================================
 // Goals: Orang buka web langsung ketemu AI untuk tanya jawab umum.
-Route::get('/', [ChatController::class, 'index'])->name('landing');
+Route::get('/', [LandingController::class, 'index'])->name('landing');
+
+Route::post('/comment', [LandingController::class, 'storeComment'])->name('comment.store');
 Route::post('/chat/send', [ChatController::class, 'sendMessage'])->name('chat.send.public');
 
+Route::post('/chat/widget', [ChatController::class, 'sendMessage'])->name('chat.widget');
 
-
+Route::get('/shop', [LandingController::class, 'shop'])->name('shop');
+Route::put('/shop/update', [SettingsController::class, 'updateShop'])->name('settings.update-shop');
 // =============================================================
 // 2. AKSES TERPROTEKSI (WAJIB LOGIN)
 // =============================================================
@@ -54,6 +64,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Laporan
         Route::get('/laporan', [UmkmController::class, 'reports'])->name('reports');
         Route::post('/laporan/saldo', [UmkmController::class, 'updateBalance'])->name('reports.balance');
+
     });
 
     // --- SETTINGS & KONTRIBUTOR ---
@@ -63,6 +74,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/contributor/upload', [SettingsController::class, 'upload'])->name('contributor.upload');
         Route::post('/contributor/store', [SettingsController::class, 'storeDataset'])->name('contributor.store');
     });
+
+   Route::get('/admin/login', [AdminController::class, 'login'])->name('admin.login');
+Route::post('/admin/login', [AdminController::class, 'authenticate'])->name('admin.authenticate');
+Route::post('/admin/logout', [AdminController::class, 'logout'])->name('admin.logout');
+
+// 2. ROUTE DASHBOARD ADMIN (Pakai Middleware AdminAuth)
+Route::prefix('admin')->middleware([AdminAuth::class])->group(function () {
+    Route::get('/', [AdminController::class, 'dashboard'])->name('admin.dashboard');
+    Route::put('/settings', [AdminController::class, 'updateSettings'])->name('admin.settings.update');
+});
 
     // --- PROFILE ---
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

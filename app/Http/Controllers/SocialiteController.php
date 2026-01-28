@@ -48,8 +48,8 @@ class SocialiteController extends Controller
             // Login-kan user
             Auth::login($user);
 
-            // Redirect ke Dashboard AI
-            return redirect()->route('dashboard');
+            // UBAH DISINI: Redirect ke Landing Page (Home), bukan Dashboard
+            return redirect()->route('landing'); 
 
         } catch (\Exception $e) {
             return redirect()->route('login')->with('error', 'Login Gagal: ' . $e->getMessage());

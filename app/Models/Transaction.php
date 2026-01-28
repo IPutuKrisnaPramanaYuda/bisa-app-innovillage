@@ -9,24 +9,10 @@ class Transaction extends Model
 {
     use HasFactory;
 
-    // Pastikan 'quantity' ada di sini
-   protected $fillable = [
-        'umkm_id',
-        'buyer_id',
-        'product_id',
-        'type',
-        'amount',
-        
-        'cost_amount', // <--- WAJIB ADA DI SINI
-        
-        'quantity',
-        'date',
-        'description',
-        'status',
-        // ...
-    ];
+    // 🔥 GANTI INI BIAR GAK RIBET 🔥
+    // Kita buka akses semua kolom, biar database yang memvalidasi
+    protected $guarded = []; 
 
-    // ... relasi lainnya biarkan saja ...
     public function product()
     {
         return $this->belongsTo(Product::class);

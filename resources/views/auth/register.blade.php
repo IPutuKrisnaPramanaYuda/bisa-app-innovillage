@@ -1,4 +1,4 @@
-<x-guest-layout>
+<x-auth-layout>
     <div class="h-screen flex w-full font-sans bg-[#0F172A] overflow-hidden">
         
         <div class="hidden lg:flex w-1/2 flex-col justify-center items-center text-white p-12 relative z-0">
@@ -11,11 +11,11 @@
             </div>
 
             <div class="relative z-10 text-center">
-                <img src="{{ asset('images/logo.png') }}" alt="Logo Growth AI" class="w-28 h-auto mx-auto mb-6 drop-shadow-2xl hover:scale-105 transition-transform duration-300">
+                <img src="{{ asset('images/logo.png') }}" alt="Logo BISA" class="w-28 h-auto mx-auto mb-6 drop-shadow-2xl hover:scale-105 transition-transform duration-300">
                 
                 <h1 class="text-3xl font-extrabold mb-3 tracking-tight">Mulai Sekarang</h1>
                 <p class="text-blue-200 text-base max-w-md mx-auto font-light leading-relaxed">
-                    Bergabunglah dengan ribuan pemilik bisnis yang telah mendigitalkan UMKM mereka.
+                    Mulai langkah digitalmu bersama Bengkala Interactive Smart Assistant.
                 </p>
             </div>
         </div>
@@ -25,8 +25,8 @@
             <div class="w-full max-w-md px-10">
                 
                 <div class="text-center mb-4 lg:hidden">
-                    <img src="{{ asset('images/logo.png') }}" alt="Logo" class="w-16 mx-auto mb-2">
-                    <h2 class="text-xl font-bold text-[#0F172A]">Growth AI</h2>
+                    <img src="{{ asset('images/logo2.png') }}" alt="Logo" class="w-16 mx-auto mb-2">
+                    <h2 class="text-xl font-bold text-[#0F172A]">BISA</h2>
                 </div>
 
                 <div class="mb-5 hidden lg:block">
@@ -120,4 +120,4 @@
             </div>
         </div>
     </div>
-</x-guest-layout>
+</x-auth-layout>

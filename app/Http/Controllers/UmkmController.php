@@ -299,6 +299,7 @@ public function storeProduct(Request $request)
     }
 
     // Proses Simpan Transaksi Manual
+    // Proses Simpan Transaksi Manual
     public function storeTransaction(Request $request)
     {
         $request->validate([
@@ -306,7 +307,8 @@ public function storeProduct(Request $request)
             'quantity' => 'required|integer|min:1',
         ]);
 
-        $product = \App\Models\Product::with('ingredients.inventory')->findOrFail($request->product_id);
+        // PERBAIKAN 1: Hapus '.inventory' di sini. Cukup 'ingredients' saja.
+        $product = \App\Models\Product::with('ingredients')->findOrFail($request->product_id);
 
         // 1. Cek Stok (Pakai Logic Computed Stock)
         if ($product->computed_stock < $request->quantity) {
@@ -315,16 +317,23 @@ public function storeProduct(Request $request)
 
         // 2. KURANGI STOK BAHAN BAKU DI GUDANG
         foreach ($product->ingredients as $ing) {
-            // Jumlah yg dikurangi = Takaran Resep * Jumlah Beli
-            $totalUsage = $ing->amount * $request->quantity;
+            // PERBAIKAN 2: Ambil jumlah resep dari Pivot Table
+            // Dulu: $ing->amount
+            // Sekarang: $ing->pivot->amount
+            $totalUsage = $ing->pivot->amount * $request->quantity;
             
-            // Update Stok Inventori
-            $ing->inventory->decrement('stock', $totalUsage);
+            // PERBAIKAN 3: Kurangi stok langsung di variabel $ing
+            // Dulu: $ing->inventory->decrement(...)  <-- INI YANG BIKIN ERROR
+            // Sekarang: $ing->decrement(...)
+            $ing->decrement('stock', $totalUsage);
         }
 
-        // 3. Simpan Transaksi (Sama seperti sebelumnya)
+        // 3. Simpan Transaksi (Bagian ini aman, tidak perlu diubah)
         $totalOmset = $product->price * $request->quantity;
-        $totalHPP   = $product->cost_price * $request->quantity;
+        
+        // Pastikan cost_price ada, kalau null anggap 0
+        $modalSatuan = $product->cost_price ?? 0; 
+        $totalHPP   = $modalSatuan * $request->quantity;
 
         \App\Models\Transaction::create([
             'umkm_id' => auth()->user()->umkm->id,

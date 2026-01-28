@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Chat - Growth AI</title>
+    <title>Chat - BISA Assistant</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -47,10 +47,10 @@
     >
         <div class="p-6 flex items-center justify-between border-b border-white/10">
             <div class="flex items-center gap-3">
-                <div class=" p-1 rounded-lg">
-                    <img src="{{ asset('images/logo.png') }}" alt="Logo" class="h-6 w-auto object-contain">
+                <div class="p-1 rounded-lg">
+                    <img src="{{ asset('images/logo.png') }}" alt="Logo" class="h-6 w-auto object-contain invert brightness-0 grayscale text-white">
                 </div>
-                <h1 class="text-lg font-bold tracking-wide">Growth AI</h1>
+                <h1 class="text-lg font-bold tracking-wide">BISA AI</h1>
             </div>
             <button @click="sidebarOpen = false" class="md:hidden text-gray-300 hover:text-white">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -79,6 +79,19 @@
                 <p class="text-[10px] text-gray-400 px-4 italic">Login untuk melihat riwayat.</p>
             @endauth
         </div>
+
+        <div class="p-4 border-t border-white/10 mt-auto bg-[#0a1a36]">
+            <a href="{{ route('umkm.dashboard') }}" 
+               class="flex items-center gap-3 w-full px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-200 hover:text-white rounded-xl transition border border-white/5 group">
+                <svg class="w-5 h-5 text-blue-400 group-hover:text-blue-300 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                <div class="flex flex-col text-left">
+                    <span class="font-bold text-xs leading-none">Kembali ke Toko</span>
+                    <span class="text-[9px] text-gray-400 mt-0.5">Dashboard Utama</span>
+                </div>
+            </a>
+        </div>
     </aside>
 
     <main class="flex-1 flex flex-col relative w-full h-full bg-white transition-all duration-300">
@@ -87,10 +100,6 @@
             <button @click="sidebarOpen = !sidebarOpen" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
             </button>
-
-            <div id="research-badge" class="hidden animate-pulse">
-                <span class="bg-blue-100 text-blue-700 text-[10px] px-3 py-1 rounded-full font-bold border border-blue-200">🎓 Research Mode Aktif</span>
-            </div>
 
             <div class="relative" x-data="{ open: false }">
                 @auth
@@ -123,11 +132,11 @@
              :class="chatEmpty ? 'justify-center items-center' : 'justify-between'">
 
             <div x-show="chatEmpty" class="text-center space-y-4 mb-8 fade-in px-4">
-                <div class="w-20 h-20 bg-blue-900 border border-gray-100 rounded-2xl flex items-center justify-center  mx-auto p-4">
-                    <img src="{{ asset('images/logo.png') }}" alt="Logo" class="w-full h-full object-contain">
+                <div class="w-20 h-20 bg-blue-900 border border-gray-100 rounded-2xl flex items-center justify-center mx-auto p-4">
+                    <img src="{{ asset('images/logo.png') }}" alt="Logo" class="w-full h-full object-contain invert brightness-0 grayscale">
                 </div>
                 <h2 class="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">Apa yang bisa saya bantu?</h2>
-                <p class="text-sm text-gray-500 max-w-xs mx-auto">Tanya stok toko, keuangan, atau riset data jurnal pendidikan.</p>
+                <p class="text-sm text-gray-500 max-w-xs mx-auto">Tanya stok toko, analisis keuangan, atau strategi penjualan.</p>
             </div>
 
             <div x-show="!chatEmpty" id="chat-container" class="w-full flex-1 overflow-y-auto p-4 pt-24 pb-4 scroll-smooth">
@@ -150,27 +159,19 @@
 
             <div class="w-full px-4 pb-6 pt-2 bg-white z-20">
                 <form id="chat-form" class="relative group bg-[#f0f4f9] rounded-3xl hover:shadow-md transition border-2 border-transparent focus-within:border-gray-200">
-                    @auth
-                        <input type="hidden" id="chat-mode" name="mode" value="regular">
-                        <div class="absolute left-2 top-1/2 -translate-y-1/2 flex items-center border-r border-gray-300 pr-1">
-                            <button type="button" onclick="toggleMode()" id="btn-toggle" class="p-2 text-gray-500 hover:text-[#0F244A] transition" title="Ganti Mode">
-                                <svg id="icon-store" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                <svg id="icon-research" class="w-6 h-6 hidden text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"></path></svg>
-                            </button>
-                        </div>
-                    @endauth
+                    
+                    <input type="hidden" name="mode" value="regular">
                     
                     <input type="text" id="message-input" required autocomplete="off"
-                        class="w-full py-4 pl-14 pr-14 bg-transparent border-none focus:ring-0 text-gray-700 placeholder-gray-400"
-                        placeholder="Ketik pesan untuk Growth AI...">
+                        class="w-full py-4 pl-6 pr-14 bg-transparent border-none focus:ring-0 text-gray-700 placeholder-gray-400"
+                        placeholder="Ketik pesan untuk BISA...">
                     
                     <button type="submit" id="send-btn" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-[#0F244A] rounded-full text-white shadow-sm hover:scale-105 transition disabled:opacity-50">
                         <svg class="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
                     </button>
                 </form>
-                <div class="flex justify-between items-center mt-3 px-2">
-                    <span id="mode-text" class="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Mode: Asisten Toko (ERP)</span>
-                    <p class="text-[9px] text-gray-400">Growth AI dapat membuat kesalahan. Cek info penting.</p>
+                <div class="flex justify-center mt-3">
+                    <p class="text-[9px] text-gray-400 text-center">BISA Assistant dapat membuat kesalahan. Cek informasi penting.</p>
                 </div>
             </div>
 
@@ -183,38 +184,13 @@
     const form = document.getElementById('chat-form');
     const input = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
-    const modeInput = document.getElementById('chat-mode');
 
-    // 1. Logic Toggle Mode (Hanya untuk user login yang punya tombolnya)
-    function toggleMode() {
-        const iconStore = document.getElementById('icon-store');
-        const iconResearch = document.getElementById('icon-research');
-        const modeText = document.getElementById('mode-text');
-        const badge = document.getElementById('research-badge');
-
-        if (modeInput && modeInput.value === 'regular') {
-            modeInput.value = 'research';
-            if(iconStore) iconStore.classList.add('hidden');
-            if(iconResearch) iconResearch.classList.remove('hidden');
-            if(badge) badge.classList.remove('hidden');
-            if(modeText) modeText.innerText = "Mode: Penelitian (Research)";
-            input.placeholder = "Tanya riset berdasarkan Jurnal/PDF...";
-        } else if(modeInput) {
-            modeInput.value = 'regular';
-            if(iconStore) iconStore.classList.remove('hidden');
-            if(iconResearch) iconResearch.classList.add('hidden');
-            if(badge) badge.classList.add('hidden');
-            if(modeText) modeText.innerText = "Mode: Asisten Toko (ERP)";
-            input.placeholder = "Ketik pesan untuk Growth AI...";
-        }
-    }
-
-    // 2. Render Markdown
+    // 1. Render Markdown
     document.querySelectorAll('.ai-content').forEach(el => {
         el.innerHTML = marked.parse(el.getAttribute('data-raw'));
     });
     
-    // 3. Scroll to Bottom
+    // 2. Scroll to Bottom
     function scrollToBottom(behavior = 'smooth') {
         if (!chatContainer) return;
         setTimeout(() => {
@@ -227,16 +203,16 @@
         scrollToBottom('auto');
     }
 
-    // 4. Submit Chat (Hanya satu listener saja agar tidak konflik)
+    // 3. Submit Chat
     form.addEventListener('submit', async (e) => {
-        e.preventDefault(); // 🔥 WAJIB: Mencegah reload halaman
+        e.preventDefault();
         
         const message = input.value.trim();
-        const mode = modeInput ? modeInput.value : 'regular';
+        const mode = 'regular'; // Default selalu regular/ERP
         
         if (!message) return;
 
-        // UI Feedback: Kosongkan input & tampilkan bubble user
+        // UI Feedback
         const alpineData = typeof Alpine !== 'undefined' ? Alpine.$data(document.body) : null;
         if (alpineData && alpineData.chatEmpty) {
             alpineData.chatEmpty = false; 
@@ -251,7 +227,6 @@
         scrollToBottom();
 
         try {
-            // 🔥 PERBAIKAN: Gunakan route PUBLIC agar Guest bisa akses tanpa reload/redirect
             const response = await fetch("{{ route('chat.send.public') }}", {
                 method: "POST",
                 headers: {
@@ -266,7 +241,6 @@
 
             const data = await response.json();
             
-            // Hapus loading bubble
             const loadingEl = document.getElementById(loadingId);
             if (loadingEl) loadingEl.remove();
 
@@ -323,6 +297,7 @@
             <div class="prose max-w-none text-gray-800 leading-relaxed bg-white p-1">${marked.parse(text)}</div>`;
         chatList.appendChild(div);
     }
-</script>
+    </script>
+
 </body>
 </html>

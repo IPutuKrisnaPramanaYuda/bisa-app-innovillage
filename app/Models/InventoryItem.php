@@ -9,7 +9,11 @@ class InventoryItem extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'umkm_id', 'name', 'category', 'stock', 'unit', 'price_per_unit'
-    ];
+    // 🔥 INI KUNCI AGAR DATA BISA MASUK 🔥
+    protected $guarded = []; 
+
+    public function umkm()
+    {
+        return $this->belongsTo(Umkm::class);
+    }
 }
