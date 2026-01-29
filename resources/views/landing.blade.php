@@ -32,7 +32,7 @@
                 WELCOME TO BENGKALA VILLAGE
             </span>
             <h1 class="text-5xl md:text-7xl font-extrabold text-white leading-tight drop-shadow-lg mb-6">
-                Desa <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">KolokERS</span> <br> 
+                Desa <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Kolok</span> <br> 
                 Yang Mendunia
             </h1>
             <p class="text-lg md:text-xl text-gray-200 max-w-2xl mx-auto mb-10 font-light">
