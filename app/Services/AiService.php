@@ -38,6 +38,17 @@ class AiService
                 ["name" => "get_product_list", "description" => "Melihat daftar produk dan stok hitungan otomatis."],
                 ["name" => "get_inventory_list", "description" => "Melihat stok bahan baku di gudang. CEK INI SEBELUM BUAT RESEP."],
                 
+                // 👇👇 INI BAGIAN PENTING YANG HILANG DI CODINGAN BOS 👇👇
+                [
+                    "name" => "get_financial_summary",
+                    "description" => "Melihat laporan keuangan, omset, total pengeluaran (HPP), dan keuntungan bersih (profit) saat ini.",
+                    "parameters" => [
+                        "type" => "OBJECT",
+                        "properties" => [], // Tidak butuh parameter, kosongkan saja
+                    ]
+                ],
+                // 👆👆 SAMPAI SINI 👆👆
+
                 // --- TOOLS CREATE (RESEP) ---
                 [
                     "name" => "create_product_with_recipe",
@@ -209,17 +220,17 @@ class AiService
             return "- {$p->name}: Rp " . number_format($p->price) . " | {$stokInfo}";
         })->implode("\n");
     }
-    protected function get_financial_summary() {
+    protected function get_financial_summary($args = []) {
         $transaksi = Transaction::where('umkm_id', $this->umkm->id)->where('type', 'IN')->get();
         
         $omset = $transaksi->sum('amount');
         $hpp = $transaksi->sum('cost_amount');
         $profit = $omset - $hpp;
         
-        return "📊 **Laporan Keuangan Real-Time**:\n\n" .
-               "- 💰 Total Omset: Rp " . number_format($omset) . "\n" .
-               "- 📉 Total Modal (HPP): Rp " . number_format($hpp) . "\n" .
-               "- 🟢 **Keuntungan Bersih: Rp " . number_format($profit) . "**";
+        // Return format teks yang enak dibaca AI
+        return "Laporan Keuangan: Total Omset Rp " . number_format($omset) . 
+               ", Total HPP Rp " . number_format($hpp) . 
+               ", Profit Bersih Rp " . number_format($profit);
     }
 
     protected function add_inventory_item($args) {
