@@ -11,7 +11,19 @@ class Transaction extends Model
 
     // 🔥 GANTI INI BIAR GAK RIBET 🔥
     // Kita buka akses semua kolom, biar database yang memvalidasi
-    protected $guarded = []; 
+    protected $fillable = [
+        'umkm_id',
+        'product_id',
+        'buyer_id', // Jika ada
+        'amount',      // Omset (Harga Jual x Qty)
+        'cost_amount', // <--- WAJIB ADA INI (HPP / Modal)
+        'quantity',
+        'type',        // 'IN' atau 'OUT'
+        'date',
+        'status',
+        'payment_method',
+        'description'
+    ];
 
     public function product()
     {
