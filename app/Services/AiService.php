@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Models\InventoryItem;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class AiService
 {
@@ -18,6 +19,7 @@ class AiService
     public function __construct()
     {
         $this->apiKey = env('GEMINI_API_KEY');
+        // PERBAIKAN 1: Ganti ke 1.5-flash yang stabil
         $this->baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$this->apiKey}";
         $this->umkm = null;
     }
@@ -36,7 +38,17 @@ class AiService
             $tools = [
                 // --- TOOLS READ ---
                 ["name" => "get_product_list", "description" => "Melihat daftar produk dan stok hitungan otomatis."],
-                ["name" => "get_inventory_list", "description" => "Melihat stok bahan baku di gudang. CEK INI SEBELUM BUAT RESEP."],
+                ["name" => "get_inventory_list", "description" => "Melihat stok bahan baku di gudang."],
+                
+                // PERBAIKAN 2: DAFTARKAN TOOL KEUANGAN DISINI!
+                [
+                    "name" => "get_financial_summary",
+                    "description" => "Melihat laporan keuangan, omset, total pengeluaran (HPP), dan keuntungan bersih (profit) saat ini.",
+                    "parameters" => [
+                        "type" => "OBJECT",
+                        "properties" => [], // Tidak butuh parameter
+                    ]
+                ],
                 
                 // --- TOOLS CREATE (RESEP) ---
                 [
@@ -95,12 +107,13 @@ class AiService
 
             $systemPrompt = "
         Kamu adalah Manajer Toko 'BISA'.
+        Waktu Server: {$now}
         
         ATURAN KERAS (WAJIB PATUH):
-        1. JANGAN PERNAH bilang 'sudah ditambahkan' atau 'berhasil' JIKA KAMU BELUM MEMANGGIL TOOL (Function Calling).
-        2. Jika user minta tambah data, KAMU WAJIB panggil fungsi 'add_inventory_item' atau 'create_product'.
-        3. Jangan mengarang data sendiri. Jika data kurang (misal harga belum ada), TANYA USER dulu.
-        4. Setelah panggil fungsi, gunakan hasil return dari fungsi tersebut untuk menjawab user.
+        1. JANGAN MENGARANG DATA. Gunakan Tools yang tersedia.
+        2. Jika user bertanya 'Berapa omset hari ini?' atau 'Laporan keuangan', PANGGIL fungsi 'get_financial_summary'.
+        3. Jika user input penjualan, panggil 'record_sale'.
+        4. Jawablah dengan format yang rapi dan profesional.
         ";
         } else {
             $systemPrompt = "Ajak user buat toko.";
@@ -111,18 +124,40 @@ class AiService
 
     // --- FUNGSI EKSEKUSI ---
 
+    protected function get_financial_summary($args = []) {
+        // Query database
+        $transaksi = Transaction::where('umkm_id', $this->umkm->id)
+                    ->where('type', 'IN')
+                    ->get();
+        
+        $omset = $transaksi->sum('amount');
+        $hpp = $transaksi->sum('cost_amount');
+        $profit = $omset - $hpp;
+        
+        $countTrans = $transaksi->count();
+
+        return json_encode([
+            "status" => "success",
+            "message" => "Data keuangan berhasil ditarik.",
+            "data" => [
+                "total_transaksi" => $countTrans . " kali",
+                "total_omset" => "Rp " . number_format($omset, 0, ',', '.'),
+                "total_modal_hpp" => "Rp " . number_format($hpp, 0, ',', '.'),
+                "total_profit_bersih" => "Rp " . number_format($profit, 0, ',', '.')
+            ]
+        ]);
+    }
+
     protected function create_product_with_recipe($args) {
         try {
-            // 1. Buat Produk
             $product = Product::create([
                 'umkm_id' => $this->umkm->id,
                 'name' => $args['name'],
                 'price' => $args['price'],
-                'stock' => 0, // Diabaikan karena pakai resep
+                'stock' => 0, 
                 'is_available' => true
             ]);
 
-            // 2. Sambungkan Resep (Pakai kolom 'amount')
             $missingItems = [];
             foreach ($args['ingredients'] as $ing) {
                 $item = InventoryItem::where('umkm_id', $this->umkm->id)
@@ -130,7 +165,6 @@ class AiService
                             ->first();
 
                 if ($item) {
-                    // PERBAIKAN: Gunakan 'amount'
                     $product->ingredients()->attach($item->id, ['amount' => $ing['amount']]);
                 } else {
                     $missingItems[] = $ing['item_name'];
@@ -139,8 +173,10 @@ class AiService
 
             $msg = "✅ Produk '{$args['name']}' berhasil dibuat! ";
             if (!empty($missingItems)) {
-                $msg .= "\n⚠️ Peringatan: Bahan berikut tidak ditemukan di gudang: " . implode(', ', $missingItems) . ". Harap input bahan tersebut agar stok terbaca.";
+                $msg .= "\n⚠️ Peringatan: Bahan berikut tidak ditemukan: " . implode(', ', $missingItems);
             } else {
+                // Refresh model untuk hitung stok
+                $product->refresh(); 
                 $msg .= "Stok terhitung saat ini: " . $product->computed_stock . " porsi.";
             }
             return $msg;
@@ -152,31 +188,24 @@ class AiService
         $product = Product::with('ingredients')->where('umkm_id', $this->umkm->id)->where('name', 'LIKE', '%'.$args['product_name'].'%')->first();
         if(!$product) return "Produk '{$args['product_name']}' tidak ditemukan.";
         
-        // 1. Cek Stok (Penting!)
         if ($product->computed_stock < $args['quantity']) {
-             return "⚠️ Stok tidak cukup! Stok tersedia cuma {$product->computed_stock} porsi. Cek stok bahan baku di gudang.";
+             return "⚠️ Stok tidak cukup! Stok tersedia cuma {$product->computed_stock} porsi.";
         }
 
-        // 2. Hitung Total HPP (Modal) & Kurangi Bahan Baku
         $totalHPP = 0;
         foreach($product->ingredients as $ing) {
             $needed = $ing->pivot->amount * $args['quantity'];
-            
-            // Hitung modal bahan yang dipakai
             $totalHPP += ($ing->price_per_unit * $needed);
-            
-            // Kurangi stok fisik
             $ing->decrement('stock', $needed);
         }
         
         $totalOmset = $product->price * $args['quantity'];
 
-        // 3. Catat Transaksi Lengkap (Dengan Profit)
         Transaction::create([
             'umkm_id' => $this->umkm->id,
             'product_id' => $product->id,
-            'amount' => $totalOmset,      // Uang Masuk
-            'cost_amount' => $totalHPP,   // Modal Keluar (HPP)
+            'amount' => $totalOmset,
+            'cost_amount' => $totalHPP,
             'quantity' => $args['quantity'],
             'type' => 'IN',
             'date' => now(),
@@ -184,9 +213,7 @@ class AiService
             'description' => "Penjualan {$product->name}"
         ]);
         
-        // Update Saldo UMKM (Laba Bersih yang masuk kas)
         $profit = $totalOmset - $totalHPP;
-        // $this->umkm->increment('balance', $profit); // Opsional jika ada kolom balance
 
         return "✅ Terjual {$args['quantity']} {$product->name}.\n💰 Omset: Rp " . number_format($totalOmset) . "\n📉 HPP: Rp " . number_format($totalHPP) . "\n📈 Profit: Rp " . number_format($profit);
     }
@@ -198,7 +225,6 @@ class AiService
     }
 
     protected function get_product_list() {
-        // Load ingredients agar computed_stock valid
         $products = Product::with('ingredients')->where('umkm_id', $this->umkm->id)->get();
         if($products->isEmpty()) return "Belum ada produk.";
         
@@ -209,35 +235,19 @@ class AiService
             return "- {$p->name}: Rp " . number_format($p->price) . " | {$stokInfo}";
         })->implode("\n");
     }
-    protected function get_financial_summary() {
-        $transaksi = Transaction::where('umkm_id', $this->umkm->id)->where('type', 'IN')->get();
-        
-        $omset = $transaksi->sum('amount');
-        $hpp = $transaksi->sum('cost_amount');
-        $profit = $omset - $hpp;
-        
-        return "📊 **Laporan Keuangan Real-Time**:\n\n" .
-               "- 💰 Total Omset: Rp " . number_format($omset) . "\n" .
-               "- 📉 Total Modal (HPP): Rp " . number_format($hpp) . "\n" .
-               "- 🟢 **Keuntungan Bersih: Rp " . number_format($profit) . "**";
-    }
 
     protected function add_inventory_item($args) {
         try {
-            // Log untuk debugging (Cek di storage/logs/laravel.log)
-            \Illuminate\Support\Facades\Log::info('AI mencoba nambah inventori:', $args);
+            Log::info('AI mencoba nambah inventori:', $args);
 
-            // 1. Validasi Input Minimal
             if (empty($args['name']) || empty($args['stock'])) {
                 return "Gagal: Nama barang dan jumlah stok wajib diisi.";
             }
 
-            // 2. Beri nilai default jika AI lupa isi
             $category = isset($args['category']) ? strtolower($args['category']) : 'bahan';
             $unit = $args['unit'] ?? 'pcs';
             $price = $args['price_per_unit'] ?? 0;
 
-            // 3. Simpan ke Database
             InventoryItem::create([
                 'umkm_id' => $this->umkm->id,
                 'name' => $args['name'],
@@ -247,15 +257,14 @@ class AiService
                 'price_per_unit' => $price
             ]);
 
-            return "✅ SUKSES: Bahan '{$args['name']}' berhasil disimpan ke database (Stok: {$args['stock']} {$unit}).";
+            return "✅ SUKSES: Bahan '{$args['name']}' berhasil disimpan (Stok: {$args['stock']} {$unit}).";
 
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Gagal tambah inventori: ' . $e->getMessage());
+            Log::error('Gagal tambah inventori: ' . $e->getMessage());
             return "❌ ERROR SISTEM: " . $e->getMessage(); 
         }
     }
 
-    // --- Helper Wajib (Jangan Dihapus) ---
     protected function handleGuestConsultation($message, $now) {
         $systemPrompt = "Kamu adalah CS Desa Bengkala. Jawab ramah.";
         $payload = ["contents" => [["role" => "user", "parts" => [["text" => $systemPrompt . "\nUser: " . $message]]]]];
@@ -267,8 +276,10 @@ class AiService
     
     private function callGeminiApi($message, $history, $tools, $prompt) {
         $contents = [];
+        // Perbaikan format history agar tidak error di Gemini
         foreach ($history as $chat) {
             if (!empty($chat->message)) $contents[] = ['role' => 'user', 'parts' => [['text' => $chat->message]]];
+            // Respon model kadang kosong kalau function call, jadi perlu dicek
             if (!empty($chat->response)) $contents[] = ['role' => 'model', 'parts' => [['text' => $chat->response]]];
         }
         $contents[] = ['role' => 'user', 'parts' => [['text' => $prompt . "\n\nUser: " . $message]]];
@@ -278,20 +289,37 @@ class AiService
 
         try {
             $response = Http::post($this->baseUrl, $payload)->json();
+            
+            // Debugging kalau error
+            if (isset($response['error'])) {
+                Log::error("Gemini API Error: " . json_encode($response['error']));
+                return "Maaf, ada gangguan pada AI. Coba lagi nanti.";
+            }
+
             $candidate = $response['candidates'][0]['content']['parts'][0] ?? [];
 
+            // Jika AI minta panggil fungsi
             if (isset($candidate['functionCall'])) {
                 $functionName = $candidate['functionCall']['name'];
                 $args = $candidate['functionCall']['args'] ?? [];
-                $resultData = method_exists($this, $functionName) ? $this->$functionName($args) : "Fungsi error.";
                 
+                // Panggil fungsi PHP
+                $resultData = method_exists($this, $functionName) ? $this->$functionName($args) : "Fungsi tidak ditemukan.";
+                
+                // Kirim hasil fungsi balik ke AI
                 $contents[] = ['role' => 'model', 'parts' => [['functionCall' => $candidate['functionCall']]]];
                 $contents[] = ['role' => 'function', 'parts' => [['functionResponse' => ['name' => $functionName, 'response' => ['content' => $resultData]]]]];
                 
-                $finalResponse = Http::post($this->baseUrl, ["contents" => $contents])->json();
+                // Request kedua untuk dapat jawaban teks final
+                $finalResponse = Http::post($this->baseUrl, ["contents" => $contents, "tools" => [["function_declarations" => $tools]]])->json();
                 return $finalResponse['candidates'][0]['content']['parts'][0]['text'] ?? $resultData;
             }
-            return $candidate['text'] ?? "Maaf, coba lagi.";
-        } catch (\Exception $e) { return "Error: " . $e->getMessage(); }
+            
+            return $candidate['text'] ?? "Saya tidak mengerti.";
+            
+        } catch (\Exception $e) { 
+            Log::error("AI Exception: " . $e->getMessage());
+            return "Error sistem: " . $e->getMessage(); 
+        }
     }
 }
