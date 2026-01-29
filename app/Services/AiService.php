@@ -38,15 +38,6 @@ class AiService
                 ["name" => "get_product_list", "description" => "Melihat daftar produk dan stok hitungan otomatis."],
                 ["name" => "get_inventory_list", "description" => "Melihat stok bahan baku di gudang. CEK INI SEBELUM BUAT RESEP."],
                 
-                [
-                    "name" => "get_financial_summary",
-                    "description" => "Melihat laporan keuangan, omset, total pengeluaran (HPP), dan keuntungan bersih (profit) saat ini.",
-                    "parameters" => [
-                        "type" => "OBJECT",
-                        "properties" => [], // Tidak butuh parameter, kosongkan saja
-                    ]
-                ],
-                
                 // --- TOOLS CREATE (RESEP) ---
                 [
                     "name" => "create_product_with_recipe",
