@@ -19,6 +19,7 @@ class AiService
     public function __construct()
     {
         $this->apiKey = env('GEMINI_API_KEY');
+        // KITA PAKAI 1.5 FLASH AGAR STABIL & CEPAT
         $this->baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$this->apiKey}";
         $this->umkm = null;
     }
@@ -28,7 +29,7 @@ class AiService
         $user = Auth::user();
         $now = Carbon::now()->locale('id')->isoFormat('dddd, D MMMM YYYY, HH:mm');
 
-        if (!$user) return "Silakan login terlebih dahulu.";
+        if (!$user) return "Silakan login terlebih dahulu untuk mengakses asisten toko.";
 
         $this->umkm = $user->umkm;
         
@@ -91,7 +92,7 @@ class AiService
             ];
 
             $systemPrompt = "
-            Kamu adalah Kasir Toko 'BISA'. Waktu: {$now}.
+            Kamu adalah Kasir Toko 'BISA'. Waktu Server: {$now}.
             
             ATURAN EKSEKUSI:
             1. Bersihkan input: '10 ribu' -> 10000. 'Jual Kopi 5' -> record_sale('Kopi', 5).
@@ -99,7 +100,7 @@ class AiService
             3. Gunakan get_financial_summary untuk data omset.
             ";
         } else {
-            return "Arahkan user daftar UMKM.";
+            return "Anda belum mendaftarkan UMKM. Silakan daftar di menu profil.";
         }
 
         return $this->callGeminiApi($userMessage, $history, $tools, $systemPrompt);
@@ -113,19 +114,20 @@ class AiService
     }
 
     protected function record_sale($args) {
-        // 1. Bersihkan Nama (Hapus kata 'pcs', 'buah', dll)
+        // 1. Bersihkan Nama (Hapus kata satuan yang bikin bingung search)
         $cleanName = trim(str_ireplace(['pcs', 'buah', 'bungkus', 'porsi', 'gelas', 'cup'], '', $args['product_name']));
 
-        // 2. Logika Cari Produk (Cerdas: Cari kata kunci di dalam nama produk)
+        // 2. Logika Cari Produk (Cerdas)
         $product = Product::with('ingredients')
                     ->where('umkm_id', $this->umkm->id)
                     ->where('name', 'LIKE', '%' . $cleanName . '%')
                     ->first();
 
-        // Cari Kebalikan: Cek jika Input User ("Kopi Susu Gula Aren") mengandung nama Produk ("Kopi Susu")
+        // Cari Kebalikan (Jika input "Kopi Susu Gula Aren", tapi produk cuma "Kopi Susu")
         if(!$product) {
             $allProducts = Product::where('umkm_id', $this->umkm->id)->get();
             foreach($allProducts as $p) {
+                // Cek apakah nama produk ada di dalam kalimat input user?
                 if (stripos($cleanName, $p->name) !== false) {
                     $product = $p;
                     $product->load('ingredients');
@@ -143,7 +145,7 @@ class AiService
 
         // 3. Cek Stok
         if ($product->computed_stock < $qty) {
-             return "⛔ STOK KURANG! Sisa {$product->computed_stock}.";
+             return "⛔ STOK KURANG! Sisa {$product->computed_stock}. Silakan restok bahan baku.";
         }
 
         // 4. Hitung HPP & Kurangi Stok
@@ -157,7 +159,7 @@ class AiService
         $totalOmset = $product->price * $qty;
         $profit = $totalOmset - $totalHPP;
 
-        // 5. SIMPAN DATABASE (FIXED FOR DASHBOARD)
+        // 5. SIMPAN DATABASE (FIX UNTUK DASHBOARD)
         try {
             $trx = Transaction::create([
                 'umkm_id' => $this->umkm->id,
@@ -168,13 +170,15 @@ class AiService
                 'type' => 'IN',
                 'date' => now(),
                 
-                // --- UPDATE PENTING BIAR MUNCUL ---
-                'status' => 'paid',       // Status sesuai DB Bos
-                'buyer_id' => Auth::id(), // Isi ID Bos sendiri biar gak dianggap 'hantu'
-                'created_at' => now(),    // Waktu sekarang untuk grafik
-                'updated_at' => now(),
+                // PENTING 1: Status 'paid' (sesuai database)
+                'status' => 'paid',       
                 
-                // payment_method dihapus dulu karena belum ada di DB
+                // PENTING 2: Buyer ID tidak boleh NULL (Biar muncul di Mikro ERP)
+                'buyer_id' => Auth::id(), 
+                
+                // PENTING 3: Created At manual (Biar muncul di Grafik hari ini)
+                'created_at' => now(),  
+                'updated_at' => now(),
                 
                 'description' => "Penjualan via AI: {$product->name}"
             ]);
@@ -228,7 +232,7 @@ class AiService
                     $missing[] = $ing['item_name'];
                 }
             }
-            return "✅ Produk '{$args['name']}' dibuat!";
+            return "✅ Produk '{$args['name']}' berhasil dibuat!";
         } catch (\Exception $e) { return "Gagal: " . $e->getMessage(); }
     }
 
@@ -283,6 +287,6 @@ class AiService
     }
 
     protected function handleGuestConsultation($message, $now) {
-        return "Login dulu ya!";
+        return "Silakan login terlebih dahulu untuk menggunakan fitur ini.";
     }
 }
