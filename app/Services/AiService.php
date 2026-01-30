@@ -259,10 +259,14 @@ class AiService
     // --- CORE GEMINI ---
     private function callGeminiApi($message, $history, $tools, $systemPrompt) {
         $contents = [];
+        
+        // 1. FILTER HISTORY
         foreach ($history as $chat) {
             if (!empty($chat->message)) $contents[] = ['role' => 'user', 'parts' => [['text' => $chat->message]]];
             if (!empty($chat->response)) $contents[] = ['role' => 'model', 'parts' => [['text' => $chat->response]]];
         }
+        
+        // 2. MASUKKAN PROMPT BARU
         $contents[] = ['role' => 'user', 'parts' => [['text' => $systemPrompt . "\n\nUser: " . $message]]];
 
         $payload = ["contents" => $contents];
@@ -271,31 +275,53 @@ class AiService
         try {
             $response = Http::post($this->baseUrl, $payload)->json();
             
+            // Cek Error Awal
             if(isset($response['error'])) {
-                Log::error("GEMINI API ERROR: " . json_encode($response['error']));
-                return "⚠️ GAGAL API: " . ($response['error']['message'] ?? 'Unknown');
+                Log::error("GEMINI REQUEST ERROR: " . json_encode($response['error']));
+                return "⚠️ Maaf, sistem AI sedang sibuk. Coba lagi sebentar.";
             }
 
             $candidate = $response['candidates'][0]['content']['parts'][0] ?? [];
 
+            // 3. HANDLE FUNCTION CALL (BAGIAN YANG DIPERBAIKI)
             if (isset($candidate['functionCall'])) {
                 $fName = $candidate['functionCall']['name'];
                 $fArgs = $candidate['functionCall']['args'] ?? [];
                 
+                // --- PERBAIKAN BUG JSON [] vs {} ---
+                // Kita simpan dulu functionCall asli
+                $fcData = $candidate['functionCall'];
+                
+                // Kalau args kosong atau array, paksa jadi OBJECT (stdClass)
+                // Ini biar json_encode menghasilkan "{}" bukan "[]"
+                if (empty($fcData['args']) || is_array($fcData['args'])) {
+                    $fcData['args'] = (object)($fcData['args'] ?? []);
+                }
+
+                // Eksekusi PHP
                 $result = method_exists($this, $fName) ? $this->$fName($fArgs) : "Fungsi tidak ditemukan.";
                 
-                $contents[] = ['role' => 'model', 'parts' => [['functionCall' => $candidate['functionCall']]]];
+                // Kirim balik ke AI dengan format yang sudah diperbaiki (fcData)
+                $contents[] = ['role' => 'model', 'parts' => [['functionCall' => $fcData]]];
                 $contents[] = ['role' => 'function', 'parts' => [['functionResponse' => ['name' => $fName, 'response' => ['content' => $result]]]]];
                 
+                // Request kedua (Jawaban Final)
                 $final = Http::post($this->baseUrl, ["contents" => $contents, "tools" => [["function_declarations" => $tools]]])->json();
                 
-                if(isset($final['error'])) return "⚠️ Gagal Function: " . ($final['error']['message'] ?? 'Unknown');
+                if(isset($final['error'])) {
+                    Log::error("GEMINI FINAL ERROR: " . json_encode($final['error']));
+                    return "⚠️ Gagal memproses data: " . ($final['error']['message'] ?? 'Unknown');
+                }
 
                 return $final['candidates'][0]['content']['parts'][0]['text'] ?? $result;
             }
+            
             return $candidate['text'] ?? "Maaf, saya tidak mengerti.";
             
-        } catch (\Exception $e) { return "Koneksi Error: " . $e->getMessage(); }
+        } catch (\Exception $e) { 
+            Log::error("CONNECTION ERROR: " . $e->getMessage());
+            return "Koneksi Error: " . $e->getMessage(); 
+        }
     }
 
     // Fungsi Tamu (Informan Desa)
