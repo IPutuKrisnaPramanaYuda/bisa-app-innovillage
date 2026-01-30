@@ -19,7 +19,6 @@ class AiService
     public function __construct()
     {
         $this->apiKey = env('GEMINI_API_KEY');
-        // Tetap pakai 1.5 Flash agar stabil
         $this->baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$this->apiKey}";
         $this->umkm = null;
     }
@@ -114,16 +113,16 @@ class AiService
     }
 
     protected function record_sale($args) {
-        // 1. Bersihkan Nama
+        // 1. Bersihkan Nama (Hapus kata 'pcs', 'buah', dll)
         $cleanName = trim(str_ireplace(['pcs', 'buah', 'bungkus', 'porsi', 'gelas', 'cup'], '', $args['product_name']));
 
-        // 2. Logika Cari Produk (Cerdas)
+        // 2. Logika Cari Produk (Cerdas: Cari kata kunci di dalam nama produk)
         $product = Product::with('ingredients')
                     ->where('umkm_id', $this->umkm->id)
                     ->where('name', 'LIKE', '%' . $cleanName . '%')
                     ->first();
 
-        // Cari Kebalikan (Input "Kopi Susu Gula Aren", Produk "Kopi Susu")
+        // Cari Kebalikan: Cek jika Input User ("Kopi Susu Gula Aren") mengandung nama Produk ("Kopi Susu")
         if(!$product) {
             $allProducts = Product::where('umkm_id', $this->umkm->id)->get();
             foreach($allProducts as $p) {
@@ -147,7 +146,7 @@ class AiService
              return "⛔ STOK KURANG! Sisa {$product->computed_stock}.";
         }
 
-        // 4. Hitung HPP
+        // 4. Hitung HPP & Kurangi Stok
         $totalHPP = 0;
         foreach($product->ingredients as $ing) {
             $needed = $ing->pivot->amount * $qty;
@@ -158,7 +157,7 @@ class AiService
         $totalOmset = $product->price * $qty;
         $profit = $totalOmset - $totalHPP;
 
-        // 5. SIMPAN DATABASE (SESUAI ANALISA BLADE)
+        // 5. SIMPAN DATABASE (FIXED FOR DASHBOARD)
         try {
             $trx = Transaction::create([
                 'umkm_id' => $this->umkm->id,
@@ -169,18 +168,13 @@ class AiService
                 'type' => 'IN',
                 'date' => now(),
                 
-                // Status sesuai DB (ENUM)
-                'status' => 'paid',     
-                
-                // ISI PEMBELI (Supaya tidak error di mikro_erp.blade.php)
-                'buyer_id' => Auth::id(), 
-                
-                // Waktu nyata (Supaya muncul di sales.blade.php / Grafik)
-                'created_at' => now(),  
+                // --- UPDATE PENTING BIAR MUNCUL ---
+                'status' => 'paid',       // Status sesuai DB Bos
+                'buyer_id' => Auth::id(), // Isi ID Bos sendiri biar gak dianggap 'hantu'
+                'created_at' => now(),    // Waktu sekarang untuk grafik
                 'updated_at' => now(),
                 
-                // HAPUS payment_method KARENA BELUM ADA DI DB
-                // 'payment_method' => 'cash', 
+                // payment_method dihapus dulu karena belum ada di DB
                 
                 'description' => "Penjualan via AI: {$product->name}"
             ]);
