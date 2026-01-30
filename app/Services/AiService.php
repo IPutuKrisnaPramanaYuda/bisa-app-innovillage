@@ -184,7 +184,7 @@ class AiService
                 'type' => 'IN',           // <-- Sesuai screenshot DBeaver
                 'date' => now(),
                 'status' => 'paid',       // <-- Status aman agar muncul di rekap
-                'payment_method' => 'cash', // <-- Tambahan agar tidak difilter dashboard
+                // 'payment_method' => 'cash', // <-- Tambahan agar tidak difilter dashboard
                 'description' => "Penjualan via AI: {$product->name}"
             ]);
             
