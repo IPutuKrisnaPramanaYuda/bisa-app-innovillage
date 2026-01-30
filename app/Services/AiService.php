@@ -256,23 +256,39 @@ class AiService
 
     // --- CORE GEMINI (JANGAN UBAH INI) ---
 
+    // --- GANTI BAGIAN PALING BAWAH INI ---
     private function callGeminiApi($message, $history, $tools, $systemPrompt) {
         $contents = [];
-        // Format history yang aman
+        
+        // 1. FILTER HISTORY BIAR GAK ERROR (PENTING!)
         foreach ($history as $chat) {
-            if ($chat->message) $contents[] = ['role' => 'user', 'parts' => [['text' => $chat->message]]];
-            if ($chat->response) $contents[] = ['role' => 'model', 'parts' => [['text' => $chat->response]]];
+            // Pastikan pesan user tidak kosong
+            if (!empty($chat->message)) {
+                $contents[] = ['role' => 'user', 'parts' => [['text' => $chat->message]]];
+            }
+            // Pastikan balasan AI tidak kosong
+            if (!empty($chat->response)) {
+                $contents[] = ['role' => 'model', 'parts' => [['text' => $chat->response]]];
+            }
         }
+        
+        // Masukkan Prompt Baru
         $contents[] = ['role' => 'user', 'parts' => [['text' => $systemPrompt . "\n\nUser bilang: " . $message]]];
 
         $payload = ["contents" => $contents];
-        if ($tools) $payload["tools"] = [["function_declarations" => $tools]];
+        if (!empty($tools)) $payload["tools"] = [["function_declarations" => $tools]];
 
         try {
             $response = Http::post($this->baseUrl, $payload)->json();
             
-            // Cek Error API
-            if(isset($response['error'])) return "Maaf, AI sedang pusing (Error API). Coba lagi.";
+            // --- BAGIAN DEBUGGING (BIAR KETAUAN ERRORNYA) ---
+            if(isset($response['error'])) {
+                // Catat ke Log Laravel (storage/logs/laravel.log)
+                Log::error("GEMINI API ERROR: " . json_encode($response['error']));
+                
+                // Tampilkan error asli ke layar chat
+                return "⚠️ GAGAL DARI GOOGLE: " . ($response['error']['message'] ?? 'Unknown Error');
+            }
 
             $candidate = $response['candidates'][0]['content']['parts'][0] ?? [];
 
@@ -290,6 +306,12 @@ class AiService
                 
                 // Minta jawaban final
                 $final = Http::post($this->baseUrl, ["contents" => $contents, "tools" => [["function_declarations" => $tools]]])->json();
+                
+                // Cek Error lagi di request kedua
+                if(isset($final['error'])) {
+                    return "⚠️ GAGAL FUNCTION CALL: " . ($final['error']['message'] ?? 'Unknown');
+                }
+
                 return $final['candidates'][0]['content']['parts'][0]['text'] ?? $result;
             }
             
