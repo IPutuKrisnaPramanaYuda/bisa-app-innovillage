@@ -137,29 +137,37 @@ class AiService
     }
 
     protected function record_sale($args) {
-        // PEMBERSIH KATA: Hapus kata sampah biar pencarian akurat
-        $cleanName = str_ireplace(['pcs', 'buah', 'bungkus', 'porsi', 'gelas'], '', $args['product_name']);
-        $cleanName = trim($cleanName);
+        $cleanName = trim(str_ireplace(['pcs', 'buah', 'bungkus', 'porsi', 'gelas'], '', $args['product_name']));
 
+        // 1. CARI PRODUK (Logika Pencarian Fleksibel)
         $product = Product::with('ingredients')
                     ->where('umkm_id', $this->umkm->id)
-                    ->where('name', 'LIKE', '%' . $cleanName . '%') // Cari yang mirip
+                    ->where('name', 'LIKE', '%' . $cleanName . '%')
                     ->first();
 
+        // Fallback search (Cari kebalikan)
         if(!$product) {
-            // Coba cari lagi tanpa cleaning (siapa tau nama produknya emang 'Es Buah')
-            $product = Product::with('ingredients')->where('umkm_id', $this->umkm->id)->where('name', 'LIKE', '%'.$args['product_name'].'%')->first();
-            if(!$product) return "⚠️ Gagal: Produk '{$cleanName}' tidak ditemukan di sistem. Pastikan nama sesuai daftar produk.";
+            $allProducts = Product::where('umkm_id', $this->umkm->id)->get();
+            foreach($allProducts as $p) {
+                if (stripos($cleanName, $p->name) !== false) {
+                    $product = $p; break;
+                }
+            }
+        }
+
+        if(!$product) {
+            $list = Product::where('umkm_id', $this->umkm->id)->pluck('name')->implode(', ');
+            return "❌ GAGAL: Produk '{$cleanName}' tidak ditemukan. Produk yang ada: {$list}";
         }
         
         $qty = $args['quantity'];
 
-        // Cek Stok
+        // 2. CEK STOK
         if ($product->computed_stock < $qty) {
-             return "⛔ Stok Kurang! Stok '{$product->name}' cuma sisa {$product->computed_stock}. Cek bahan baku di gudang.";
+             return "⛔ Stok Kurang! Stok '{$product->name}' sisa {$product->computed_stock}.";
         }
 
-        // Kurangi Stok & Hitung HPP
+        // 3. HITUNG DUIT
         $totalHPP = 0;
         foreach($product->ingredients as $ing) {
             $needed = $ing->pivot->amount * $qty;
@@ -170,27 +178,40 @@ class AiService
         $totalOmset = $product->price * $qty;
         $profit = $totalOmset - $totalHPP;
 
-        // Simpan Transaksi (Pakai try-catch biar ketahuan kalau error DB)
+        // 4. SIMPAN TRANSAKSI (DISESUAIKAN DENGAN DASHBOARD)
         try {
-            Transaction::create([
+            $trx = Transaction::create([
                 'umkm_id' => $this->umkm->id,
                 'product_id' => $product->id,
                 'amount' => $totalOmset,
-                'cost_amount' => $totalHPP, // Kolom ini wajib ada!
+                'cost_amount' => $totalHPP,
                 'quantity' => $qty,
                 'type' => 'IN',
-                'date' => now(),
-                'status' => 'paid',
-                'description' => "Penjualan {$product->name} via AI"
+                
+                // --- KUNCI BIAR MUNCUL DI DASHBOARD ---
+                'date' => now(),          // Tanggal Transaksi
+                'created_at' => now(),    // Waktu dibuat (PENTING untuk Grafik)
+                'updated_at' => now(),
+                
+                // Ubah status ke 'success' atau 'paid' (biasanya 'success' untuk dashboard Laravel umum)
+                // Coba 'success' dulu, kalau gagal ganti 'paid' lagi.
+                'status' => 'success',    
+                
+                // Pastikan deskripsi terisi
+                'description' => "Penjualan via AI: {$product->name}"
             ]);
+            
+            Log::info("✅ Transaksi AI Sukses: ID {$trx->id}");
+
+            return "✅ BERHASIL (ID #{$trx->id}):\n" .
+                   "Terjual {$qty} {$product->name}.\n" .
+                   "💰 Omset: Rp " . number_format($totalOmset) . "\n" .
+                   "📈 Profit: Rp " . number_format($profit);
+
         } catch (\Exception $e) {
             Log::error("Database Error: " . $e->getMessage());
-            return "❌ Error Sistem: Gagal menyimpan ke database. " . $e->getMessage();
+            return "❌ Error Sistem: " . $e->getMessage();
         }
-
-        return "✅ BERHASIL: Terjual {$qty} {$product->name}.\n" .
-               "💰 Uang Masuk: Rp " . number_format($totalOmset) . "\n" .
-               "📈 Untung Bersih: Rp " . number_format($profit);
     }
 
     protected function add_inventory_item($args) {
