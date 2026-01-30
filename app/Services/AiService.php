@@ -36,17 +36,15 @@ class AiService
         if ($this->umkm) {
             $tools = [
                 // 1. CEK DATA (READ)
+                // Hapus 'parameters' kalau tidak butuh input, biar Google gak bingung
                 ["name" => "get_product_list", "description" => "Melihat daftar produk jualan dan stok tersedia."],
                 ["name" => "get_inventory_list", "description" => "Melihat stok bahan baku mentah di gudang."],
                 
-                // 2. CEK DUIT (FINANCE) - INI YANG KEMARIN HILANG
+                // 2. CEK DUIT (FINANCE) - ERRORNYA KEMARIN DISINI
                 [
                     "name" => "get_financial_summary",
-                    "description" => "Melihat laporan keuangan: Omset (Uang Masuk), HPP (Modal), dan Profit (Untung Bersih).",
-                    "parameters" => [
-                        "type" => "OBJECT",
-                        "properties" => [], // Tanpa parameter
-                    ]
+                    "description" => "Melihat laporan keuangan: Omset (Uang Masuk), HPP (Modal), dan Profit (Untung Bersih)."
+                    // SAYA HAPUS BAGIAN "parameters" => [...] KARENA TIDAK PERLU
                 ],
 
                 // 3. TAMBAH BARANG (CREATE)
