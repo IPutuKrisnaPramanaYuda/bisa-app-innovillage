@@ -195,7 +195,7 @@ class AiService
                 
                 // Ubah status ke 'success' atau 'paid' (biasanya 'success' untuk dashboard Laravel umum)
                 // Coba 'success' dulu, kalau gagal ganti 'paid' lagi.
-                'status' => 'success',    
+                'status' => 'paid',    
                 
                 // Pastikan deskripsi terisi
                 'description' => "Penjualan via AI: {$product->name}"
